@@ -1,0 +1,14 @@
+{
+  "top_features": [
+    "digital_addiction_score",
+    "age",
+    "avg_time_ord",
+    "platform_count",
+    "plat_Reddit",
+    "relationship_enc",
+    "plat_TikTok",
+    "plat_Snapchat",
+    "occupation_enc",
+    "plat_Discord"
+  ]
+}
