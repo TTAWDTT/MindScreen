@@ -1,11 +1,12 @@
 """
-MindScreen - Flask API 后端服务
-提供预测接口和数据分析功能
+MindScreen - Flask API 后端服务（smmh 版）
+适配 smmh.csv 训练得到的 risk / depressed 模型
 """
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
+import pandas as pd
 import numpy as np
 import json
 import os
@@ -13,317 +14,406 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# 模型路径
-MODEL_DIR = '../models'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'models'))
+DATA_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', 'smmh.csv'))
 
-# 加载模型和工具
-print("加载模型...")
-anxiety_model = joblib.load(os.path.join(MODEL_DIR, 'anxiety_model.pkl'))
-depression_model = joblib.load(os.path.join(MODEL_DIR, 'depression_model.pkl'))
-sleep_model = joblib.load(os.path.join(MODEL_DIR, 'sleep_model.pkl'))
+required_files = [
+    'smmh_risk_pipeline.pkl',
+    'smmh_depressed_pipeline.pkl',
+    'smmh_model_info.json'
+]
 
-scaler_anxiety = joblib.load(os.path.join(MODEL_DIR, 'scaler_anxiety.pkl'))
-scaler_depression = joblib.load(os.path.join(MODEL_DIR, 'scaler_depression.pkl'))
-scaler_sleep = joblib.load(os.path.join(MODEL_DIR, 'scaler_sleep.pkl'))
+print(f"加载模型... (模型目录: {MODEL_DIR})")
+missing = [f for f in required_files if not os.path.exists(os.path.join(MODEL_DIR, f))]
+if missing:
+    raise FileNotFoundError(
+        f"缺少模型文件: {missing}\n预期位于: {MODEL_DIR}\n请先运行 backend/train_smmh_models.py 生成模型或复制 models/ 文件夹。"
+    )
 
-gender_encoder = joblib.load(os.path.join(MODEL_DIR, 'gender_encoder.pkl'))
+# Prefer v2 risk pipeline if available
+risk_v2_path = os.path.join(MODEL_DIR, 'smmh_risk_pipeline_v2.pkl')
+if os.path.exists(risk_v2_path):
+    risk_pipeline = joblib.load(risk_v2_path)
+    RISK_PIPE_VERSION = 'v2'
+else:
+    risk_pipeline = joblib.load(os.path.join(MODEL_DIR, 'smmh_risk_pipeline.pkl'))
+    RISK_PIPE_VERSION = 'v1'
 
-with open(os.path.join(MODEL_DIR, 'data_stats.json'), 'r', encoding='utf-8') as f:
-    data_stats = json.load(f)
+dep_pipeline = joblib.load(os.path.join(MODEL_DIR, 'smmh_depressed_pipeline.pkl'))
 
-with open(os.path.join(MODEL_DIR, 'model_info.json'), 'r', encoding='utf-8') as f:
+with open(os.path.join(MODEL_DIR, 'smmh_model_info.json'), 'r', encoding='utf-8') as f:
     model_info = json.load(f)
 
-print("模型加载完成！")
+PLATFORMS = model_info.get('platforms', [])
+FEATURES = model_info.get('features', [])
 
-# 特征名称映射
-FEATURE_NAMES = {
-    'age': '年龄',
-    'gender_encoded': '性别',
-    'daily_screen_time_hours': '每日总屏幕时间',
-    'work_related_hours': '工作相关时间',
-    'entertainment_hours': '娱乐时间',
-    'social_media_hours': '社交媒体时间',
-    'sleep_duration_hours': '睡眠时长',
-    'sleep_quality': '睡眠质量'
+# Load reference data for percentile computation (Likert questions)
+COL_RENAME = {
+    'Timestamp': 'timestamp',
+    '1. What is your age?': 'age',
+    '2. Gender': 'gender',
+    '3. Relationship Status': 'relationship',
+    '4. Occupation Status': 'occupation',
+    '5. What type of organizations are you affiliated with?': 'affiliate_organization',
+    '6. Do you use social media?': 'social_media_use',
+    '7. What social media platforms do you commonly use?': 'platforms',
+    '8. What is the average time you spend on social media every day?': 'avg_time_per_day',
+    '9. How often do you find yourself using Social media without a specific purpose?': 'without_purpose',
+    '10. How often do you get distracted by Social media when you are busy doing something?': 'distracted',
+    "11. Do you feel restless if you haven't used Social media in a while?": 'restless',
+    '12. On a scale of 1 to 5, how easily distracted are you?': 'distracted_ease',
+    '13. On a scale of 1 to 5, how much are you bothered by worries?': 'worries',
+    '14. Do you find it difficult to concentrate on things?': 'concentration',
+    '15. On a scale of 1-5, how often do you compare yourself to other successful people through the use of social media?': 'compare_to_others',
+    '16. Following the previous question, how do you feel about these comparisons, generally speaking?': 'compare_feelings',
+    '17. How often do you look to seek validation from features of social media?': 'validation',
+    '18. How often do you feel depressed or down?': 'depressed',
+    '19. On a scale of 1 to 5, how frequently does your interest in daily activities fluctuate?': 'daily_activity_flux',
+    '20. On a scale of 1 to 5, how often do you face issues regarding sleep?': 'sleeping_issues'
 }
 
-def get_percentile(value, stat_key):
-    """计算数值在人群中的百分位"""
-    stats = data_stats.get(stat_key, {})
-    percentiles = stats.get('percentiles', {})
-    
-    if value <= percentiles.get('10', 0):
-        return 10, "前10%（最低）"
-    elif value <= percentiles.get('25', 0):
-        return 25, "前25%（较低）"
-    elif value <= percentiles.get('50', 0):
-        return 50, "前50%（中等偏低）"
-    elif value <= percentiles.get('75', 0):
-        return 75, "前75%（中等偏高）"
-    elif value <= percentiles.get('90', 0):
-        return 90, "前90%（较高）"
-    else:
-        return 100, "前100%（最高）"
+LIKERT_COLS = [
+    'without_purpose', 'distracted', 'restless', 'distracted_ease', 'worries',
+    'concentration', 'compare_to_others', 'compare_feelings', 'validation',
+    'depressed', 'daily_activity_flux', 'sleeping_issues'
+]
 
-def analyze_causes(prediction_type, value, features, importance):
-    """分析导致问题的原因"""
-    causes = []
-    suggestions = []
+
+def compute_percentile(val, series: pd.Series):
+    try:
+        if series is None or series.empty or val is None:
+            return None
+        # Clamp within observed range, then interpolate on percentiles 0-100
+        q = np.nanpercentile(series, np.arange(0, 101))
+        pct = np.interp(val, q, np.arange(0, 101))
+        pct = float(np.clip(pct, 0, 100))
+        return round(pct, 1)
+    except Exception:
+        return None
+
+baseline_map = model_info.get('likert_baseline', {})
+
+Q_LABELS = {
+    'q9': 'Q9 无目的刷社交媒体频率',
+    'q10': 'Q10 忙碌时被社交媒体分心频率',
+    'q11': 'Q11 一段时间不用社交媒体的焦躁感',
+    'q12': 'Q12 容易分心程度',
+    'q13': 'Q13 被担忧困扰程度',
+    'q14': 'Q14 难以集中注意力频率',
+    'q15': 'Q15 与他人比较频率',
+    'q16': 'Q16 对比较的感受',
+    'q17': 'Q17 寻求社交媒体认可频率',
+    'q18': 'Q18 感到沮丧频率',
+    'q19': 'Q19 对日常活动兴趣波动频率',
+    'q20': 'Q20 睡眠问题频率'
+}
+
+try:
+    df_ref = pd.read_csv(DATA_PATH)
+    df_ref = df_ref.rename(columns=COL_RENAME)
+    if not baseline_map:
+        # Fallback: compute baseline from training data if not saved in model_info
+        for col in LIKERT_COLS:
+            if col in df_ref.columns:
+                series = df_ref[col]
+                raw_mean = float(series.mean()) if series.notnull().any() else None
+                pct_mean = compute_percentile(raw_mean, series) if raw_mean is not None else None
+                baseline_map[col] = {
+                    'baseline_value': raw_mean,
+                    'baseline_percentile': pct_mean
+                }
+            else:
+                baseline_map[col] = {
+                    'baseline_value': None,
+                    'baseline_percentile': None
+                }
+except Exception:
+    df_ref = pd.DataFrame()
+    baseline_map = baseline_map or {}
+
+DEFAULTS = {
+    'age': 25.0,
+    'gender': 'Male',
+    'relationship': 'Single',
+    'occupation': 'University Student',
+    'avg_time_per_day': 'Between 2 and 3 hours'
+}
+
+AVG_TIME_ORDER = [
+    'Less than an Hour',
+    'Between 1 and 2 hours',
+    'Between 2 and 3 hours',
+    'Between 3 and 4 hours',
+    'Between 4 and 5 hours',
+    'More than 5 hours'
+]
+
+# Simple label encoding mappings (consistent with training)
+RELATIONSHIP_MAPPING = {'Single': 0, 'In a relationship': 1, 'Married': 2, 'Divorced': 3}
+OCCUPATION_MAPPING = {'University Student': 0, 'School Student': 1, 'Salaried Worker': 2, 'Retired': 3}
+
+
+def build_feature_row(data: dict):
+    """Build feature row matching training schema with plat_*, encodings, and engineered features."""
+    age = float(data.get('age', DEFAULTS['age']))
+    gender = data.get('gender', DEFAULTS['gender'])
+    relationship = data.get('relationship', DEFAULTS['relationship'])
+    occupation = data.get('occupation', DEFAULTS['occupation'])
+    avg_time = data.get('avg_time_per_day', DEFAULTS['avg_time_per_day'])
+
+    # Platform flags (plat_* prefix to match training)
+    platforms_input = data.get('platforms', [])
+    if isinstance(platforms_input, str):
+        platforms_input = [p.strip() for p in platforms_input.split(',') if p.strip()]
     
-    # 判断是否存在问题
-    if prediction_type == 'anxiety':
-        stats = data_stats.get('weekly_anxiety_score', {})
-        threshold = stats.get('percentiles', {}).get('75', 15)
-        is_high = value > threshold
-        score_type = "焦虑评分"
-    elif prediction_type == 'depression':
-        stats = data_stats.get('weekly_depression_score', {})
-        threshold = stats.get('percentiles', {}).get('75', 15)
-        is_high = value > threshold
-        score_type = "抑郁评分"
-    else:  # sleep
-        stats = data_stats.get('sleep_quality', {})
-        threshold = stats.get('percentiles', {}).get('25', 4)
-        is_high = value < threshold  # 睡眠质量低分为问题
-        score_type = "睡眠质量"
-    
-    if not is_high:
-        return {
-            'has_issue': False,
-            'message': f"您的{score_type}处于正常范围内，请继续保持良好的生活习惯！",
-            'causes': [],
-            'suggestions': []
-        }
-    
-    # 分析主要影响因素
-    sorted_importance = sorted(importance.items(), key=lambda x: x[1], reverse=True)
-    top_factors = sorted_importance[:3]  # 取前3个重要因素
-    
-    # 生成原因分析
-    age_gender_only = True
-    for factor, imp in top_factors:
-        if factor == 'age':
-            causes.append(f"您的年龄（{features.get('age', 0)}岁）是一个影响因素")
-        elif factor == 'gender_encoded':
-            causes.append(f"您的性别是一个影响因素")
-        elif factor == 'daily_screen_time_hours':
-            age_gender_only = False
-            screen_time = features.get('daily_screen_time_hours', 0)
-            pct, desc = get_percentile(screen_time, 'daily_screen_time_hours')
-            if pct >= 75:
-                causes.append(f"您的每日屏幕使用时间（{screen_time}小时）较高，处于人群{desc}")
-                suggestions.append("建议减少每日屏幕使用时间，尝试安排更多户外活动")
-        elif factor == 'work_related_hours':
-            age_gender_only = False
-            work_time = features.get('work_related_hours', 0)
-            pct, desc = get_percentile(work_time, 'work_related_hours')
-            if pct >= 75:
-                causes.append(f"您的工作相关屏幕时间（{work_time}小时）较高，处于人群{desc}")
-                suggestions.append("建议优化工作效率，适当减少连续工作时间，增加休息间隔")
-        elif factor == 'entertainment_hours':
-            age_gender_only = False
-            ent_time = features.get('entertainment_hours', 0)
-            pct, desc = get_percentile(ent_time, 'entertainment_hours')
-            if pct >= 75:
-                causes.append(f"您的娱乐时间（{ent_time}小时）较高，处于人群{desc}")
-                suggestions.append("建议控制娱乐时间，尝试更健康的娱乐方式如运动")
-        elif factor == 'social_media_hours':
-            age_gender_only = False
-            social_time = features.get('social_media_hours', 0)
-            pct, desc = get_percentile(social_time, 'social_media_hours')
-            if pct >= 75:
-                causes.append(f"您在社交媒体上花费的时间（{social_time}小时）较高，处于人群{desc}")
-                suggestions.append("建议减少社交媒体使用时间，增加面对面社交活动")
-        elif factor == 'sleep_duration_hours':
-            age_gender_only = False
-            sleep_dur = features.get('sleep_duration_hours', 0)
-            pct, desc = get_percentile(sleep_dur, 'sleep_duration_hours')
-            if pct <= 25:
-                causes.append(f"您的睡眠时长（{sleep_dur}小时）较短，处于人群{desc}")
-                suggestions.append("建议保证每天7-9小时的睡眠时间")
-        elif factor == 'sleep_quality':
-            age_gender_only = False
-            sleep_qual = features.get('sleep_quality', 0)
-            pct, desc = get_percentile(sleep_qual, 'sleep_quality')
-            if pct <= 25:
-                causes.append(f"您的睡眠质量评分（{sleep_qual}）较低，处于人群{desc}")
-                suggestions.append("建议改善睡眠环境，保持规律作息，睡前避免使用电子设备")
-    
-    if age_gender_only and len(causes) > 0:
-        return {
-            'has_issue': True,
-            'message': f"您的{score_type}偏高，主要与您的年龄和性别相关，这属于该人群的正常现象。建议保持健康的生活方式，定期进行心理健康评估。",
-            'causes': causes,
-            'suggestions': ["保持规律作息", "适当运动", "如有需要可咨询专业人士"]
-        }
-    
-    return {
-        'has_issue': True,
-        'message': f"您的{score_type}偏高，以下是可能的原因：",
-        'causes': causes if causes else ["多种因素综合影响"],
-        'suggestions': suggestions if suggestions else ["建议保持健康的生活方式，合理安排屏幕使用时间"]
+    plat_flags = {f'plat_{p}': (1 if p in platforms_input else 0) for p in PLATFORMS}
+    platform_count = sum(plat_flags.values())
+
+    # Encode relationship and occupation
+    relationship_enc = RELATIONSHIP_MAPPING.get(relationship, 0)
+    occupation_enc = OCCUPATION_MAPPING.get(occupation, 0)
+
+    # Encode avg_time_per_day as ordinal
+    try:
+        avg_time_ord = float(AVG_TIME_ORDER.index(avg_time))
+    except (ValueError, AttributeError):
+        avg_time_ord = 2.0  # default to middle
+
+    # Get survey responses for digital_addiction_score (Q9-Q12)
+    survey = data.get('survey', {}) or {}
+    q9 = int(survey.get('q9', 0))
+    q10 = int(survey.get('q10', 0))
+    q11 = int(survey.get('q11', 0))
+    q12 = int(survey.get('q12', 0))
+    digital_addiction_score = q9 + q10 + q11 + q12
+
+    # Gender one-hot (match training: gender_Male, gender_Female, gender_other)
+    gender_Male = 1 if gender == 'Male' else 0
+    gender_Female = 1 if gender == 'Female' else 0
+    gender_other = 1 if gender not in ['Male', 'Female'] else 0
+
+    row = {
+        'age': age,
+        'relationship_enc': relationship_enc,
+        'occupation_enc': occupation_enc,
+        'avg_time_ord': avg_time_ord,
+        'platform_count': platform_count,
+        'digital_addiction_score': digital_addiction_score,
+        **plat_flags,
+        'gender_Male': gender_Male,
+        'gender_Female': gender_Female,
+        'gender_other': gender_other
     }
+
+    # Order according to FEATURES from model_info
+    ordered_row = {feat: row.get(feat, 0) for feat in FEATURES}
+    return ordered_row
+
+def predict_with_pipeline(pipe, row):
+    df = pd.DataFrame([row])
+    pred = pipe.predict(df)[0]
+    proba = []
+    if hasattr(pipe, 'predict_proba'):
+        try:
+            probs = pipe.predict_proba(df)[0]
+            labels = pipe.classes_
+            proba = [
+                {'label': str(lbl), 'probability': float(prob)}
+                for lbl, prob in sorted(zip(labels, probs), key=lambda x: x[1], reverse=True)
+            ]
+        except Exception:
+            proba = []
+    return str(pred), proba
+
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """健康检查接口"""
     return jsonify({'status': 'ok', 'message': 'MindScreen API is running'})
+
 
 @app.route('/api/predict', methods=['POST'])
 def predict():
-    """预测接口"""
     try:
-        data = request.json
-        
-        # 提取输入特征
-        age = float(data.get('age', 25))
-        gender = data.get('gender', 'Male')
-        daily_screen_time = float(data.get('daily_screen_time_hours', 6))
-        work_related = float(data.get('work_related_hours', 2))
-        entertainment = float(data.get('entertainment_hours', 2))
-        social_media = float(data.get('social_media_hours', 2))
-        sleep_duration = float(data.get('sleep_duration_hours', 7))
-        sleep_quality = float(data.get('sleep_quality', 5))
-        
-        # 性别编码
-        try:
-            gender_encoded = gender_encoder.transform([gender])[0]
-        except:
-            gender_encoded = 1  # 默认Male
-        
-        # 准备特征
-        features_dict = {
-            'age': age,
-            'gender_encoded': gender_encoded,
-            'daily_screen_time_hours': daily_screen_time,
-            'work_related_hours': work_related,
-            'entertainment_hours': entertainment,
-            'social_media_hours': social_media,
-            'sleep_duration_hours': sleep_duration,
-            'sleep_quality': sleep_quality
-        }
-        
-        # 焦虑评分预测
-        X_anxiety = np.array([[age, gender_encoded, daily_screen_time, work_related, 
-                              entertainment, social_media, sleep_duration, sleep_quality]])
-        X_anxiety_scaled = scaler_anxiety.transform(X_anxiety)
-        anxiety_score = float(anxiety_model.predict(X_anxiety_scaled)[0])
-        anxiety_score = max(0, min(20, anxiety_score))  # 限制范围
-        
-        # 抑郁评分预测
-        X_depression = np.array([[age, gender_encoded, daily_screen_time, work_related,
-                                 entertainment, social_media, sleep_duration, sleep_quality]])
-        X_depression_scaled = scaler_depression.transform(X_depression)
-        depression_score = float(depression_model.predict(X_depression_scaled)[0])
-        depression_score = max(0, min(20, depression_score))  # 限制范围
-        
-        # 睡眠质量预测
-        X_sleep = np.array([[daily_screen_time, work_related, entertainment, social_media]])
-        X_sleep_scaled = scaler_sleep.transform(X_sleep)
-        predicted_sleep = float(sleep_model.predict(X_sleep_scaled)[0])
-        predicted_sleep = max(1, min(10, predicted_sleep))  # 限制范围
-        
-        # 计算各指标的统计区间
-        percentile_info = {}
-        for key in ['daily_screen_time_hours', 'work_related_hours', 'entertainment_hours',
-                    'social_media_hours', 'sleep_duration_hours', 'sleep_quality']:
-            value = features_dict.get(key, 0)
-            pct, desc = get_percentile(value, key)
-            percentile_info[key] = {
-                'value': value,
-                'percentile': pct,
-                'description': desc,
-                'stats': data_stats.get(key, {})
+        data = request.json or {}
+        feature_row = build_feature_row(data)
+
+        risk_pred, risk_proba = predict_with_pipeline(risk_pipeline, feature_row)
+        dep_pred, dep_proba = predict_with_pipeline(dep_pipeline, feature_row)
+
+        # Percentile analysis for Likert questions (Q9-Q20) if provided
+        survey = data.get('survey', {}) or {}
+        percentile_list = []
+        if not df_ref.empty:
+            survey_map = {
+                'q9': 'without_purpose',
+                'q10': 'distracted',
+                'q11': 'restless',
+                'q12': 'distracted_ease',
+                'q13': 'worries',
+                'q14': 'concentration',
+                'q15': 'compare_to_others',
+                'q16': 'compare_feelings',
+                'q17': 'validation',
+                'q18': 'depressed',
+                'q19': 'daily_activity_flux',
+                'q20': 'sleeping_issues'
             }
+            for qid, col in survey_map.items():
+                try:
+                    val = survey.get(qid)
+                    if val is not None:
+                        val = float(val)
+                    pct = compute_percentile(val, df_ref.get(col))
+                    baseline = baseline_map.get(col, {})
+                    baseline_pct = baseline.get('baseline_percentile', baseline.get('pct'))
+                    baseline_val = baseline.get('baseline_value', baseline.get('raw'))
+                    percentile_list.append({
+                        'id': qid,
+                        'label': Q_LABELS.get(qid, qid),
+                        'value': val,
+                        'percentile': pct,
+                        'baseline_percentile': baseline_pct,
+                        'baseline_value': baseline_val
+                    })
+                except Exception:
+                    continue
+
+        # Compute composite mental health score and percentile ranking
+        composite_score = None
+        composite_percentile = None
+        composite_rank_text = None
         
-        # 分析原因
-        anxiety_analysis = analyze_causes('anxiety', anxiety_score, features_dict, 
-                                         model_info['anxiety']['feature_importance'])
-        depression_analysis = analyze_causes('depression', depression_score, features_dict,
-                                            model_info['depression']['feature_importance'])
-        sleep_analysis = analyze_causes('sleep', predicted_sleep, features_dict,
-                                       model_info['sleep']['feature_importance'])
-        
-        # 构建响应
+        composite_dist = model_info.get('composite_score_distribution', {})
+        if composite_dist and risk_proba and dep_proba:
+            try:
+                # Get probability of 'higher' risk
+                # Model may return numeric labels (0/1) or string labels (higher/lower)
+                risk_prob_higher = 0.0
+                
+                # Debug: print all risk probabilities
+                print(f"[DEBUG] Risk probabilities: {risk_proba}")
+                
+                # Try different label formats
+                for item in risk_proba:
+                    label = str(item['label']).lower()
+                    # Check for 'higher', '1', or if it's the second item (assuming sorted by probability)
+                    if 'higher' in label or label == '1':
+                        risk_prob_higher = item['probability']
+                        break
+                
+                # If still 0, check if we need to look at the actual prediction
+                if risk_prob_higher == 0.0 and len(risk_proba) >= 2:
+                    # If risk_pred indicates higher risk, get that probability
+                    if str(risk_pred).lower() in ['higher', '1']:
+                        # Find the matching probability
+                        for item in risk_proba:
+                            if str(item['label']) == str(risk_pred):
+                                risk_prob_higher = item['probability']
+                                break
+                    else:
+                        # If prediction is 'lower' or '0', use 1 - P(lower)
+                        for item in risk_proba:
+                            if str(item['label']) == str(risk_pred):
+                                risk_prob_higher = 1.0 - item['probability']
+                                break
+                
+                # Get depressed level (convert to numeric 1-5)
+                dep_level = 3.0  # default
+                
+                # Debug: print depression prediction
+                print(f"[DEBUG] Depression pred: {dep_pred}, probs: {dep_proba}")
+                
+                try:
+                    # Try to convert prediction to float directly
+                    dep_level = float(dep_pred)
+                except (ValueError, TypeError):
+                    # If it's a string number, extract it
+                    dep_str = str(dep_pred).strip()
+                    for digit in ['1', '2', '3', '4', '5']:
+                        if digit in dep_str:
+                            dep_level = float(digit)
+                            break
+                
+                # Debug logging
+                print(f"[DEBUG] Composite calculation: risk_higher={risk_prob_higher:.4f}, dep_level={dep_level}")
+                
+                # Calculate composite score using same formula as training
+                composite_score = 0.5 * risk_prob_higher + 0.5 * (dep_level / 5.0)
+                
+                print(f"[DEBUG] Raw composite score: {composite_score:.4f}")
+                
+                # Compare with training distribution to get percentile
+                percentiles_array = np.array(composite_dist.get('percentiles', []))
+                if len(percentiles_array) > 0:
+                    # Find percentile by interpolation and clamp to 0-100
+                    composite_percentile = float(np.interp(
+                        composite_score,
+                        percentiles_array,
+                        np.arange(0, 101)
+                    ))
+                    composite_percentile = np.clip(composite_percentile, 0, 100)
+                    
+                    # Generate ranking text (percentile=分数在训练集中的位置，高分=差)
+                    # 分数越高越差，所以百分位高意味着状态差
+                    if composite_percentile >= 90:
+                        composite_rank_text = "心理风险高于90%用户，建议重点关注心理健康"
+                    elif composite_percentile >= 75:
+                        composite_rank_text = "心理风险高于75%用户，心理压力较大"
+                    elif composite_percentile >= 50:
+                        composite_rank_text = "处于中等水平，需要适度调节"
+                    elif composite_percentile >= 25:
+                        composite_rank_text = "心理风险低于50%用户，状态相对良好"
+                    elif composite_percentile >= 10:
+                        composite_rank_text = "心理风险低于75%用户，状态良好"
+                    else:
+                        composite_rank_text = "心理风险低于90%用户，心理状态较佳"
+                        
+            except Exception as e:
+                print(f"Composite score calculation error: {e}")
+
         response = {
             'predictions': {
-                'anxiety_score': round(anxiety_score, 2),
-                'depression_score': round(depression_score, 2),
-                'predicted_sleep_quality': round(predicted_sleep, 2),
-                'actual_sleep_quality': sleep_quality
+                'risk': risk_pred,
+                'risk_probs': risk_proba,
+                'depressed': dep_pred,
+                'depressed_probs': dep_proba
             },
-            'percentile_analysis': percentile_info,
-            'cause_analysis': {
-                'anxiety': anxiety_analysis,
-                'depression': depression_analysis,
-                'sleep': sleep_analysis
+            'composite_score': {
+                'score': composite_score,
+                'percentile': composite_percentile,
+                'rank_description': composite_rank_text,
+                'formula': composite_dist.get('formula', 'N/A')
+            } if composite_score is not None else None,
+            'input_summary': feature_row,
+            'model_meta': {
+                'risk_model': model_info['risk']['model'],
+                'risk_model_version': RISK_PIPE_VERSION,
+                'depressed_model': model_info['depressed']['model'],
+                'features': FEATURES,
+                'platforms': PLATFORMS
             },
-            'input_summary': {
-                'age': age,
-                'gender': gender,
-                'daily_screen_time_hours': daily_screen_time,
-                'work_related_hours': work_related,
-                'entertainment_hours': entertainment,
-                'social_media_hours': social_media,
-                'sleep_duration_hours': sleep_duration,
-                'sleep_quality': sleep_quality
-            }
+            'percentiles': percentile_list
         }
-        
+
         return jsonify(response)
-    
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    """获取统计数据"""
-    return jsonify({
-        'data_stats': data_stats,
-        'model_info': {
-            'anxiety_model': model_info['anxiety']['model_name'],
-            'depression_model': model_info['depression']['model_name'],
-            'sleep_model': model_info['sleep']['model_name'],
-            'feature_importance': {
-                'anxiety': model_info['anxiety']['feature_importance'],
-                'depression': model_info['depression']['feature_importance'],
-                'sleep': model_info['sleep']['feature_importance']
-            }
-        }
-    })
+    return jsonify({'model_info': model_info})
 
-@app.route('/api/percentile', methods=['POST'])
-def calculate_percentile():
-    """计算单个值的百分位"""
-    try:
-        data = request.json
-        metric = data.get('metric')
-        value = float(data.get('value', 0))
-        
-        if metric not in data_stats:
-            return jsonify({'error': f'Unknown metric: {metric}'}), 400
-        
-        pct, desc = get_percentile(value, metric)
-        return jsonify({
-            'metric': metric,
-            'value': value,
-            'percentile': pct,
-            'description': desc,
-            'stats': data_stats[metric]
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
-    print("\n" + "="*50)
-    print("MindScreen API 服务启动")
-    print("="*50)
+    print("\n" + "=" * 50)
+    print("MindScreen API 服务启动 (smmh)")
+    print("=" * 50)
     print("访问地址: http://localhost:5000")
     print("API 端点:")
     print("  - GET  /api/health    - 健康检查")
     print("  - POST /api/predict   - 预测分析")
-    print("  - GET  /api/stats     - 获取统计数据")
-    print("  - POST /api/percentile - 计算百分位")
-    print("="*50 + "\n")
+    print("  - GET  /api/stats     - 获取模型信息")
+    print("=" * 50 + "\n")
     app.run(debug=True, host='0.0.0.0', port=5000)

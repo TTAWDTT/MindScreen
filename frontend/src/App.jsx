@@ -1,40 +1,102 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
 
 const API_BASE = '/api';
+const PLATFORM_OPTIONS = [
+  { value: 'TikTok', label: '抖音/TikTok' },
+  { value: 'YouTube', label: '油管/YouTube（含 B站 类似用途）' },
+  { value: 'Instagram', label: '照片社交/Instagram' },
+  { value: 'Facebook', label: '熟人社交/Facebook（类朋友圈）' },
+  { value: 'Twitter', label: '微博/X（Twitter）' },
+  { value: 'Discord', label: '社区语音/Discord' },
+  { value: 'Reddit', label: '论坛/Reddit' },
+  { value: 'Pinterest', label: '图片灵感/Pinterest' },
+  { value: 'Snapchat', label: '阅后即焚/Snapchat' }
+];
 
-// 特征名称映射
-const FEATURE_NAMES = {
-  'daily_screen_time_hours': '每日屏幕时间',
-  'work_related_hours': '工作相关时间',
-  'entertainment_hours': '娱乐时间',
-  'social_media_hours': '社交媒体时间',
-  'sleep_duration_hours': '睡眠时长',
-  'sleep_quality': '睡眠质量'
+const TIME_OPTIONS = [
+  { value: 'Less than an Hour', label: '少于 1 小时/天' },
+  { value: 'Between 1 and 2 hours', label: '1-2 小时/天' },
+  { value: 'Between 2 and 3 hours', label: '2-3 小时/天' },
+  { value: 'Between 3 and 4 hours', label: '3-4 小时/天' },
+  { value: 'Between 4 and 5 hours', label: '4-5 小时/天' },
+  { value: 'More than 5 hours', label: '5 小时以上/天' }
+];
+
+const RELATIONSHIP = [
+  { value: 'Single', label: '单身' },
+  { value: 'In a relationship', label: '恋爱中' },
+  { value: 'Married', label: '已婚' },
+  { value: 'Divorced', label: '离异' }
+];
+
+const STATUS_COLORS = {
+  '较低风险': '#2ecc71',
+  '较高风险': '#e67e22',
+  higher: '#e67e22',
+  lower: '#2ecc71'
 };
 
-const CHART_COLORS = ['#1db954', '#ff6b6b', '#845ef7', '#4ecdc4', '#ffd93d', '#6bcb77'];
+const CHART_COLORS = ['#1db954', '#ff9f43', '#845ef7', '#4ecdc4', '#f5576c'];
+
+const SIMPLE_TITLE = '简版问卷（约 30 秒）';
+const DETAILED_TITLE = '完整版问卷（约 1 分钟）';
+const LIKERT_OPTIONS = [1, 2, 3, 4, 5];
+
+const DETAILED_EXTRA_QUESTIONS = [
+  { id: 'occupation', label: 'Q4. 您目前的职业/身份？', type: 'select', options: ['学生', '上班族', '自由职业', '其他'] },
+  { id: 'affiliate', label: 'Q5. 您所在的机构类型？', type: 'select', options: ['学校/大学', '公司/机构', '其他'] },
+  { id: 'use_social', label: 'Q6. 您是否使用社交媒体？', type: 'select', options: ['是', '否'] },
+  { id: 'q9', label: 'Q9. 您会无目的地刷社交媒体的频率？', type: 'likert' },
+  { id: 'q10', label: 'Q10. 当忙碌时被社交媒体分心的频率？', type: 'likert' },
+  { id: 'q11', label: 'Q11. 如果一段时间不用社交媒体会感到不安吗？', type: 'likert' },
+  { id: 'q12', label: 'Q12. 您容易分心的程度（1-5）', type: 'likert' },
+  { id: 'q13', label: 'Q13. 您被担忧困扰的程度（1-5）', type: 'likert' },
+  { id: 'q14', label: 'Q14. 您是否难以集中注意力？', type: 'likert' },
+  { id: 'q15', label: 'Q15. 您因社交媒体与他人比较的频率（1-5）', type: 'likert' },
+  { id: 'q16', label: 'Q16. 对上述比较的感受（1-5）', type: 'likert' },
+  { id: 'q17', label: 'Q17. 您寻求社交媒体点赞/评论认可的频率？', type: 'likert' },
+  { id: 'q18', label: 'Q18. 您感到沮丧或情绪低落的频率？', type: 'likert' },
+  { id: 'q19', label: 'Q19. 您对日常活动兴趣波动的频率？', type: 'likert' },
+  { id: 'q20', label: 'Q20. 您遇到睡眠问题的频率？', type: 'likert' }
+];
 
 function App() {
   const [formData, setFormData] = useState({
     age: 25,
     gender: 'Male',
-    daily_screen_time_hours: 6,
-    work_related_hours: 3,
-    entertainment_hours: 2,
-    social_media_hours: 2,
-    sleep_duration_hours: 7,
-    sleep_quality: 5
+    relationship: 'Single',
+    avg_time_per_day: 'Between 2 and 3 hours',
+    platforms: ['YouTube', 'Instagram']
   });
+
+  const [mode, setMode] = useState('simple'); // simple | detailed
 
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const [extraAnswers, setExtraAnswers] = useState({
+    occupation: '学生',
+    affiliate: '学校',
+    use_social: '是',
+    q9: 3,
+    q10: 3,
+    q11: 3,
+    q12: 3,
+    q13: 3,
+    q14: 3,
+    q15: 3,
+    q16: 3,
+    q17: 3,
+    q18: 3,
+    q19: 3,
+    q20: 3
+  });
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
@@ -44,13 +106,35 @@ function App() {
     }));
   };
 
+  const handlePlatformToggle = (platform) => {
+    setFormData(prev => {
+      const exists = prev.platforms.includes(platform);
+      const nextPlatforms = exists
+        ? prev.platforms.filter(p => p !== platform)
+        : [...prev.platforms, platform];
+      return { ...prev, platforms: nextPlatforms };
+    });
+  };
+
+  const handleExtraChange = (id, value) => {
+    setExtraAnswers(prev => ({ ...prev, [id]: value }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const response = await axios.post(`${API_BASE}/predict`, formData);
+      const payload = { ...formData };
+      if (!payload.avg_time_per_day) {
+        payload.avg_time_per_day = 'Between 2 and 3 hours';
+      }
+      payload.survey = extraAnswers;
+
+      const response = await axios.post(`${API_BASE}/predict`, payload);
+      console.log('[DEBUG] Response data:', response.data);
+      console.log('[DEBUG] Composite score:', response.data.composite_score);
       setResults(response.data);
     } catch (err) {
       setError(err.response?.data?.error || '预测失败，请稍后重试');
@@ -59,63 +143,114 @@ function App() {
     }
   };
 
-  // 准备百分位图表数据
-  const preparePercentileData = () => {
-    if (!results?.percentile_analysis) return [];
-    return Object.entries(results.percentile_analysis).map(([key, data]) => ({
-      name: FEATURE_NAMES[key] || key,
-      value: data.value,
-      percentile: data.percentile,
-      fullMark: 100
-    }));
-  };
+  const renderProbBars = (probs = []) => (
+    <div className="prob-list">
+      {probs.map((item, idx) => (
+        <div key={idx} className="prob-item">
+          <div className="prob-label">{translateLabel(item.label)}</div>
+          <div className="prob-bar">
+            <div
+              className="prob-bar-fill"
+              style={{ width: `${(item.probability * 100).toFixed(1)}%` }}
+            >
+              {(item.probability * 100).toFixed(1)}%
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
-  // 准备雷达图数据
-  const prepareRadarData = () => {
-    if (!results?.percentile_analysis) return [];
-    return Object.entries(results.percentile_analysis).map(([key, data]) => ({
-      subject: FEATURE_NAMES[key] || key,
-      A: data.percentile,
-      fullMark: 100
-    }));
+  function translateLabel(lbl) {
+    if (lbl == null) return '';
+    const map = {
+      higher: '较高风险',
+      lower: '较低风险'
+    };
+    return map[String(lbl)] || String(lbl);
+  }
+
+  const percentileData = (results?.percentiles || []).map(p => ({
+    name: p.label || p.id,
+    value: p.percentile ?? 0,
+    raw: p.value ?? null,
+    baseline: p.baseline_percentile ?? 50,
+    baselineRaw: p.baseline_value ?? null,
+  }));
+
+  const depChartData = (results?.predictions?.depressed_probs || []).map(p => ({
+    name: translateLabel(p.label),
+    value: Math.round(p.probability * 1000) / 10
+  }));
+
+  const buildAdvice = () => {
+    if (!results?.predictions) return [];
+    const adv = [];
+    if (results.predictions.risk === 'higher') {
+      adv.push('心理风险偏高：减少高刺激社交媒体使用时长，设置每日上限，增加线下社交与运动。');
+    } else {
+      adv.push('心理风险较低：保持良好习惯，定期自我觉察，避免长时间刷短视频。');
+    }
+    const dep = results.predictions.depressed;
+    if (dep >= 4) {
+      adv.push('抑郁等级偏高：建议及时与专业人士沟通，确保规律作息与社交支持。');
+    } else if (dep === '3' || dep === 3) {
+      adv.push('情绪波动中等：保持运动与睡眠，安排可控的小目标，减少信息过载。');
+    } else {
+      adv.push('情绪状态较稳：继续维持稳定作息与正向社交，关注情绪微调。');
+    }
+    return adv;
   };
 
   return (
     <div className="app">
-      {/* Header */}
       <header className="header">
         <div className="header-content">
           <div className="logo">
             <div className="logo-icon">🧠</div>
             <div>
               <h1>MindScreen</h1>
-              <span>心理健康智能评估系统</span>
+              <span>数字使用与心理健康评估</span>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="main-content">
-        {/* Welcome Section */}
         {!results && (
           <section className="welcome-section">
-            <h2>了解您的数字健康</h2>
-            <p>
-              通过分析您的屏幕使用习惯和睡眠模式，我们可以帮助您了解这些因素如何影响您的心理健康，
-              并提供个性化的改善建议。
-            </p>
+            <h2>用 smmh 新模型评估心理健康</h2>
+            <p>选择「简单测试」或「详细测试」。简单测试仅需基础信息，详细测试可补充更多社交使用情况，输出心理风险（高/低）与抑郁等级（1-5）。</p>
           </section>
         )}
 
-        {/* Input Form */}
         <section className="form-section">
-          <h2 className="section-title">输入您的信息</h2>
+          <h2 className="section-title">填写您的数据（问卷形式）</h2>
+          <div className="mode-switch">
+            <button
+              type="button"
+              className={mode === 'simple' ? 'mode-btn active' : 'mode-btn'}
+              onClick={() => setMode('simple')}
+            >
+              {SIMPLE_TITLE}
+            </button>
+            <button
+              type="button"
+              className={mode === 'detailed' ? 'mode-btn active' : 'mode-btn'}
+              onClick={() => setMode('detailed')}
+            >
+              {DETAILED_TITLE}
+            </button>
+          </div>
+          <p className="mode-hint">
+            {mode === 'simple'
+              ? '简版问卷：将 20 题浓缩为 3 题（年龄、性别、常用平台），其余采用默认值。'
+              : '完整版问卷：展示与数据集一致的 20 题，可逐题作答，输入最贴近原始问卷。'}
+          </p>
           <form onSubmit={handleSubmit}>
             <div className="form-grid">
-              {/* 年龄 */}
               <div className="form-group">
-                <label>年龄</label>
+                <label>Q1. 您的年龄？</label>
                 <input
                   type="number"
                   name="age"
@@ -127,121 +262,83 @@ function App() {
                 />
               </div>
 
-              {/* 性别 */}
               <div className="form-group">
-                <label>性别</label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleInputChange}
-                >
+                <label>Q2. 您的性别？</label>
+                <select name="gender" value={formData.gender} onChange={handleInputChange}>
                   <option value="Male">男性</option>
                   <option value="Female">女性</option>
                   <option value="Other">其他</option>
                 </select>
               </div>
 
-              {/* 每日总屏幕时间 */}
               <div className="form-group">
-                <label>每日总屏幕时间 (小时)</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    name="daily_screen_time_hours"
-                    value={formData.daily_screen_time_hours}
-                    onChange={handleInputChange}
-                    min="0"
-                    max="16"
-                    step="0.5"
-                  />
-                  <span className="slider-value">{formData.daily_screen_time_hours}h</span>
+                <label>Q7. 您常用的社交/内容平台有哪些？（可多选）</label>
+                <div className="platform-grid">
+                  {PLATFORM_OPTIONS.map(p => (
+                    <label key={p.value} className="platform-item">
+                      <input
+                        type="checkbox"
+                        checked={formData.platforms.includes(p.value)}
+                        onChange={() => handlePlatformToggle(p.value)}
+                      />
+                      <span>{p.label}</span>
+                    </label>
+                  ))}
                 </div>
+                <div className="platform-tip">已选 {formData.platforms.length} 个平台（越符合日常越好，至少选择 1 项）</div>
               </div>
 
-              {/* 工作相关时间 */}
-              <div className="form-group">
-                <label>工作相关时间 (小时)</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    name="work_related_hours"
-                    value={formData.work_related_hours}
-                    onChange={handleInputChange}
-                    min="0"
-                    max="12"
-                    step="0.5"
-                  />
-                  <span className="slider-value">{formData.work_related_hours}h</span>
-                </div>
-              </div>
+              {mode === 'detailed' && (
+                <>
+                  <div className="form-group">
+                    <label>Q3. 您当前的感情状态？</label>
+                    <select name="relationship" value={formData.relationship} onChange={handleInputChange}>
+                      {RELATIONSHIP.map(r => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* 娱乐时间 */}
-              <div className="form-group">
-                <label>娱乐时间 (小时)</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    name="entertainment_hours"
-                    value={formData.entertainment_hours}
-                    onChange={handleInputChange}
-                    min="0"
-                    max="10"
-                    step="0.5"
-                  />
-                  <span className="slider-value">{formData.entertainment_hours}h</span>
-                </div>
-              </div>
+                  <div className="form-group">
+                    <label>Q8. 您平均每天使用社交/内容平台的时长？</label>
+                    <select name="avg_time_per_day" value={formData.avg_time_per_day} onChange={handleInputChange}>
+                      {TIME_OPTIONS.map(t => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                    <div className="platform-tip">此项用于更贴近数据集中“每日时长”问卷题</div>
+                  </div>
 
-              {/* 社交媒体时间 */}
-              <div className="form-group">
-                <label>社交媒体时间 (小时)</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    name="social_media_hours"
-                    value={formData.social_media_hours}
-                    onChange={handleInputChange}
-                    min="0"
-                    max="10"
-                    step="0.5"
-                  />
-                  <span className="slider-value">{formData.social_media_hours}h</span>
-                </div>
-              </div>
-
-              {/* 睡眠时长 */}
-              <div className="form-group">
-                <label>睡眠时长 (小时)</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    name="sleep_duration_hours"
-                    value={formData.sleep_duration_hours}
-                    onChange={handleInputChange}
-                    min="3"
-                    max="12"
-                    step="0.5"
-                  />
-                  <span className="slider-value">{formData.sleep_duration_hours}h</span>
-                </div>
-              </div>
-
-              {/* 睡眠质量 */}
-              <div className="form-group">
-                <label>睡眠质量评分 (1-10)</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    name="sleep_quality"
-                    value={formData.sleep_quality}
-                    onChange={handleInputChange}
-                    min="1"
-                    max="10"
-                    step="1"
-                  />
-                  <span className="slider-value">{formData.sleep_quality}</span>
-                </div>
-              </div>
+                  {DETAILED_EXTRA_QUESTIONS.map(q => (
+                    <div className="form-group" key={q.id}>
+                      <label>{q.label}</label>
+                      {q.type === 'select' && (
+                        <select value={extraAnswers[q.id]} onChange={(e) => handleExtraChange(q.id, e.target.value)}>
+                          {q.options.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      )}
+                      {q.type === 'likert' && (
+                        <div className="likert-row">
+                          {LIKERT_OPTIONS.map(val => (
+                            <label key={val} className="likert-option">
+                              <input
+                                type="radio"
+                                name={q.id}
+                                value={val}
+                                checked={Number(extraAnswers[q.id]) === val}
+                                onChange={() => handleExtraChange(q.id, val)}
+                              />
+                              <span>{val}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
 
             <button type="submit" className="submit-btn" disabled={loading}>
@@ -250,7 +347,6 @@ function App() {
           </form>
         </section>
 
-        {/* Loading */}
         {loading && (
           <div className="loading">
             <div className="loading-spinner"></div>
@@ -258,299 +354,128 @@ function App() {
           </div>
         )}
 
-        {/* Error */}
         {error && (
           <div style={{ color: '#ff6b6b', padding: '16px', textAlign: 'center' }}>
             {error}
           </div>
         )}
 
-        {/* Results */}
         {results && !loading && (
           <div className="results-section">
-            {/* Score Cards */}
+            {/* 综合评分卡片 - 如果有数据则显示 */}
+            {results.composite_score && (
+              <div className="composite-score-banner">
+                <div className="composite-score-content">
+                  <div className="composite-score-icon">🎯</div>
+                  <div className="composite-score-info">
+                    <h3>综合心理健康评分</h3>
+                    <div className="composite-score-value">
+                      {(results.composite_score.score * 100).toFixed(1)}
+                      <span className="composite-score-max">/100</span>
+                    </div>
+                    <div className="composite-percentile">
+                      {results.composite_score.percentile >= 50 
+                        ? `心理风险超过 ${results.composite_score.percentile.toFixed(1)}% 用户`
+                        : `心理状态优于 ${(100 - results.composite_score.percentile).toFixed(1)}% 用户`
+                      }
+                    </div>
+                    <div className="composite-rank-text">{results.composite_score.rank_description}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="score-cards">
-              <div className="score-card anxiety">
+              <div className="score-card">
                 <div className="score-card-header">
-                  <div className="score-icon">😰</div>
-                  <span className="score-card-title">焦虑评分</span>
+                  <div className="score-icon" style={{ color: STATUS_COLORS[translateLabel(results.predictions.risk)] || '#1db954' }}>🧩</div>
+                  <span className="score-card-title">心理风险 (高/低)</span>
                 </div>
-                <div className="score-value">{results.predictions.anxiety_score.toFixed(1)}</div>
-                <div className="score-bar">
-                  <div 
-                    className="score-bar-fill" 
-                    style={{ width: `${(results.predictions.anxiety_score / 20) * 100}%` }}
-                  />
-                </div>
+                <div className="score-value">{translateLabel(results.predictions.risk)}</div>
+                {renderProbBars(results.predictions.risk_probs)}
               </div>
 
-              <div className="score-card depression">
+              <div className="score-card">
                 <div className="score-card-header">
-                  <div className="score-icon">😔</div>
-                  <span className="score-card-title">抑郁评分</span>
+                  <div className="score-icon" style={{ color: '#ff9f43' }}>⚡</div>
+                  <span className="score-card-title">抑郁等级 (1-5)</span>
                 </div>
-                <div className="score-value">{results.predictions.depression_score.toFixed(1)}</div>
-                <div className="score-bar">
-                  <div 
-                    className="score-bar-fill" 
-                    style={{ width: `${(results.predictions.depression_score / 20) * 100}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="score-card sleep">
-                <div className="score-card-header">
-                  <div className="score-icon">😴</div>
-                  <span className="score-card-title">预测睡眠质量</span>
-                </div>
-                <div className="score-value">{results.predictions.predicted_sleep_quality.toFixed(1)}</div>
-                <div className="score-bar">
-                  <div 
-                    className="score-bar-fill" 
-                    style={{ width: `${(results.predictions.predicted_sleep_quality / 10) * 100}%` }}
-                  />
-                </div>
+                <div className="score-value">{translateLabel(results.predictions.depressed)}</div>
+                {renderProbBars(results.predictions.depressed_probs)}
               </div>
             </div>
 
-            {/* Percentile Analysis */}
-            <section className="percentile-section">
-              <h2 className="section-title">您在人群中的位置</h2>
-              <div className="percentile-grid">
-                {results.percentile_analysis && Object.entries(results.percentile_analysis).map(([key, data]) => (
-                  <div key={key} className="percentile-item">
-                    <div className="percentile-header">
-                      <span className="percentile-label">{FEATURE_NAMES[key] || key}</span>
-                      <span className="percentile-value">{data.value}</span>
-                    </div>
-                    <div className="percentile-bar">
-                      <div 
-                        className="percentile-bar-fill" 
-                        style={{ width: `${data.percentile}%` }}
+            {/* 仅在完整版问卷或有百分位数据时才显示概率分布可视化 */}
+            {percentileData.length > 0 && (
+              <section className="charts-section">
+                <h2 className="section-title">概率分布可视化</h2>
+              <div className="chart-grid">
+                <div className="chart-card">
+                  <h3>各题得分分布（百分位）</h3>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={percentileData} layout="vertical" margin={{ left: 20 }}>
+                      <XAxis type="number" domain={[0, 100]} tick={{ fill: '#b3b3b3' }} />
+                      <YAxis type="category" dataKey="name" width={220} tick={{ fill: '#b3b3b3', fontSize: 12 }} />
+                      <Tooltip
+                        formatter={(v, _, item) => {
+                          const raw = item?.payload?.raw;
+                          const baseline = item?.payload?.baseline;
+                          const pct = Number(v).toFixed(1) + '%';
+                          if (item?.dataKey === 'baseline') {
+                            const bRaw = item?.payload?.baselineRaw;
+                            return [pct, bRaw != null ? `训练集均值 ${bRaw.toFixed(1)}` : '训练集均值'];
+                          }
+                          return raw != null ? [pct, `得分 ${raw}`] : [pct, '百分位'];
+                        }}
+                        cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                        contentStyle={{ background: '#181818', border: '1px solid #2a2a2a', borderRadius: 8, color: '#fff' }}
                       />
-                    </div>
-                    <div className="percentile-desc">{data.description}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                      {/* 背景虚化“正常分数”对比：用训练集均值的百分位作为淡色底条 */}
+                      <Bar dataKey="baseline" radius={[6, 6, 6, 6]} fill="rgba(255,255,255,0.06)" />
+                      <Bar dataKey="value" radius={[6, 6, 6, 6]} fill={CHART_COLORS[0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
 
-            {/* Charts */}
-            <section className="charts-section">
-              <h2 className="section-title">数据可视化</h2>
-              
-              <div className="chart-container">
-                <h3 style={{ marginBottom: '16px', color: '#b3b3b3' }}>各指标百分位分布</h3>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={preparePercentileData()}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="name" stroke="#b3b3b3" tick={{ fontSize: 12 }} />
-                    <YAxis stroke="#b3b3b3" domain={[0, 100]} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#282828', 
-                        border: 'none', 
-                        borderRadius: '8px',
-                        color: '#fff'
-                      }}
-                      formatter={(value, name) => {
-                        if (name === 'percentile') return [`${value}%`, '百分位'];
-                        return [value, '数值'];
-                      }}
-                    />
-                    <Legend />
-                    <Bar dataKey="percentile" name="百分位排名" fill="#1db954" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="chart-card">
+                  <h3>抑郁等级概率分布</h3>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <PieChart>
+                      <Pie
+                        data={depChartData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={90}
+                        paddingAngle={2}
+                        label={({ name, value }) => `${name} ${value}%`}
+                      >
+                        {depChartData.map((entry, idx) => (
+                          <Cell key={`cell-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v, n) => [`${v}%`, n]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
+              </section>
+            )}
 
-              <div className="chart-container">
-                <h3 style={{ marginBottom: '16px', color: '#b3b3b3' }}>综合指标雷达图</h3>
-                <ResponsiveContainer width="100%" height={400}>
-                  <RadarChart data={prepareRadarData()}>
-                    <PolarGrid stroke="#333" />
-                    <PolarAngleAxis dataKey="subject" stroke="#b3b3b3" tick={{ fontSize: 11 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#b3b3b3" />
-                    <Radar
-                      name="您的数据"
-                      dataKey="A"
-                      stroke="#1db954"
-                      fill="#1db954"
-                      fillOpacity={0.3}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#282828', 
-                        border: 'none', 
-                        borderRadius: '8px',
-                        color: '#fff'
-                      }}
-                    />
-                    <Legend />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="chart-container">
-                <h3 style={{ marginBottom: '16px', color: '#b3b3b3' }}>时间分配饼图</h3>
-                <ResponsiveContainer width="100%" height={400}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: '工作相关', value: formData.work_related_hours },
-                        { name: '娱乐', value: formData.entertainment_hours },
-                        { name: '社交媒体', value: formData.social_media_hours },
-                        { name: '其他屏幕时间', value: Math.max(0, formData.daily_screen_time_hours - formData.work_related_hours - formData.entertainment_hours - formData.social_media_hours) }
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={150}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={{ stroke: '#b3b3b3' }}
-                    >
-                      {[0, 1, 2, 3].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#282828', 
-                        border: 'none', 
-                        borderRadius: '8px',
-                        color: '#fff'
-                      }}
-                      formatter={(value) => [`${value}小时`, '时长']}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            {/* Cause Analysis */}
             <section className="analysis-section">
-              <h2 className="section-title">原因分析与建议</h2>
-              <div className="analysis-grid">
-                {/* 焦虑分析 */}
-                <div className="analysis-card">
-                  <div className="analysis-card-header">
-                    <span className="analysis-card-icon">😰</span>
-                    <span className="analysis-card-title">焦虑评分分析</span>
-                  </div>
-                  {results.cause_analysis?.anxiety?.has_issue ? (
-                    <>
-                      <p className="analysis-message">{results.cause_analysis.anxiety.message}</p>
-                      {results.cause_analysis.anxiety.causes?.length > 0 && (
-                        <div className="analysis-causes">
-                          <h4>可能原因</h4>
-                          <ul>
-                            {results.cause_analysis.anxiety.causes.map((cause, idx) => (
-                              <li key={idx}>{cause}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {results.cause_analysis.anxiety.suggestions?.length > 0 && (
-                        <div className="analysis-suggestions">
-                          <h4>改善建议</h4>
-                          <ul>
-                            {results.cause_analysis.anxiety.suggestions.map((suggestion, idx) => (
-                              <li key={idx}>{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="no-issue">
-                      <span>✓</span>
-                      <span>{results.cause_analysis?.anxiety?.message || '您的焦虑评分处于正常范围'}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 抑郁分析 */}
-                <div className="analysis-card">
-                  <div className="analysis-card-header">
-                    <span className="analysis-card-icon">😔</span>
-                    <span className="analysis-card-title">抑郁评分分析</span>
-                  </div>
-                  {results.cause_analysis?.depression?.has_issue ? (
-                    <>
-                      <p className="analysis-message">{results.cause_analysis.depression.message}</p>
-                      {results.cause_analysis.depression.causes?.length > 0 && (
-                        <div className="analysis-causes">
-                          <h4>可能原因</h4>
-                          <ul>
-                            {results.cause_analysis.depression.causes.map((cause, idx) => (
-                              <li key={idx}>{cause}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {results.cause_analysis.depression.suggestions?.length > 0 && (
-                        <div className="analysis-suggestions">
-                          <h4>改善建议</h4>
-                          <ul>
-                            {results.cause_analysis.depression.suggestions.map((suggestion, idx) => (
-                              <li key={idx}>{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="no-issue">
-                      <span>✓</span>
-                      <span>{results.cause_analysis?.depression?.message || '您的抑郁评分处于正常范围'}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 睡眠分析 */}
-                <div className="analysis-card">
-                  <div className="analysis-card-header">
-                    <span className="analysis-card-icon">😴</span>
-                    <span className="analysis-card-title">睡眠质量分析</span>
-                  </div>
-                  {results.cause_analysis?.sleep?.has_issue ? (
-                    <>
-                      <p className="analysis-message">{results.cause_analysis.sleep.message}</p>
-                      {results.cause_analysis.sleep.causes?.length > 0 && (
-                        <div className="analysis-causes">
-                          <h4>可能原因</h4>
-                          <ul>
-                            {results.cause_analysis.sleep.causes.map((cause, idx) => (
-                              <li key={idx}>{cause}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {results.cause_analysis.sleep.suggestions?.length > 0 && (
-                        <div className="analysis-suggestions">
-                          <h4>改善建议</h4>
-                          <ul>
-                            {results.cause_analysis.sleep.suggestions.map((suggestion, idx) => (
-                              <li key={idx}>{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="no-issue">
-                      <span>✓</span>
-                      <span>{results.cause_analysis?.sleep?.message || '您的睡眠质量处于正常范围'}</span>
-                    </div>
-                  )}
-                </div>
+              <h2 className="section-title">建议</h2>
+              <div className="analysis-card">
+                {buildAdvice().map((t, i) => (
+                  <p key={i} className="analysis-message">• {t}</p>
+                ))}
               </div>
             </section>
           </div>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="footer">
         <p>MindScreen © 2024 - 基于机器学习的心理健康评估系统</p>
         <p style={{ marginTop: '8px', fontSize: '12px' }}>
