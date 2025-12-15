@@ -227,6 +227,11 @@ def predict_with_pipeline(pipe, row):
     return str(pred), proba
 
 
+#---------- 以上为工具函数 ----------
+
+
+#---------- 以下为路由部分 ----------
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'ok', 'message': 'MindScreen API is running'})
@@ -406,14 +411,36 @@ def get_stats():
     return jsonify({'model_info': model_info})
 
 
+@app.route('/api/training-report', methods=['GET'])
+def get_training_report():
+    """获取模型训练对比报告"""
+    report_path = os.path.join(MODEL_DIR, 'model_comparison_report.json')
+    if os.path.exists(report_path):
+        with open(report_path, 'r', encoding='utf-8') as f:
+            report = json.load(f)
+        return jsonify(report)
+    else:
+        # 返回基础信息
+        return jsonify({
+            'message': '详细训练报告不可用',
+            'basic_info': {
+                'risk_model': model_info.get('risk', {}).get('model', 'unknown'),
+                'depressed_model': model_info.get('depressed', {}).get('model', 'unknown'),
+                'dataset_rows': model_info.get('n_rows', 'unknown'),
+                'features': model_info.get('features', [])
+            }
+        })
+
+
 if __name__ == '__main__':
     print("\n" + "=" * 50)
     print("MindScreen API 服务启动 (smmh)")
     print("=" * 50)
     print("访问地址: http://localhost:5000")
     print("API 端点:")
-    print("  - GET  /api/health    - 健康检查")
-    print("  - POST /api/predict   - 预测分析")
-    print("  - GET  /api/stats     - 获取模型信息")
+    print("  - GET  /api/health          - 健康检查")
+    print("  - POST /api/predict         - 预测分析")
+    print("  - GET  /api/stats           - 获取模型信息")
+    print("  - GET  /api/training-report - 获取训练报告")
     print("=" * 50 + "\n")
     app.run(debug=True, host='0.0.0.0', port=5000)
