@@ -72,15 +72,15 @@ export const SOCIAL_MEDIA_QUESTIONS = [
     type: 'multiselect',
     required: true,
     options: [
-      { value: 'TikTok', label: '抖音/TikTok', icon: '📱' },
-      { value: 'YouTube', label: 'YouTube/B站', icon: '▶️' },
-      { value: 'Instagram', label: 'Instagram/小红书', icon: '📷' },
-      { value: 'Facebook', label: '微信朋友圈', icon: '👥' },
-      { value: 'Twitter', label: '微博/X', icon: '🐦' },
-      { value: 'Discord', label: 'Discord/QQ频道', icon: '🎮' },
-      { value: 'Reddit', label: '论坛/贴吧', icon: '💬' },
-      { value: 'Pinterest', label: 'Pinterest/花瓣', icon: '📌' },
-      { value: 'Snapchat', label: 'Snapchat', icon: '👻' }
+      { value: 'TikTok', label: '抖音/TikTok' },
+      { value: 'YouTube', label: 'YouTube/B站' },
+      { value: 'Instagram', label: 'Instagram/小红书' },
+      { value: 'Facebook', label: '微信朋友圈' },
+      { value: 'Twitter', label: '微博/X' },
+      { value: 'Discord', label: 'Discord/QQ频道' },
+      { value: 'Reddit', label: '论坛/贴吧' },
+      { value: 'Pinterest', label: 'Pinterest/花瓣' },
+      { value: 'Snapchat', label: 'Snapchat' }
     ],
     defaultValue: ['YouTube', 'Instagram'],
     category: 'social',
@@ -260,14 +260,14 @@ export const LIKERT_QUESTIONS = [
 
 // 题目分类配置
 export const QUESTION_CATEGORIES = {
-  basic: { name: '基本信息', icon: '👤', color: '#6366f1' },
-  social: { name: '社交媒体使用', icon: '📱', color: '#8b5cf6' },
-  addiction: { name: '数字使用习惯', icon: '⏰', color: '#ec4899' },
-  mental: { name: '心理状态', icon: '🧠', color: '#14b8a6' },
-  comparison: { name: '社交比较', icon: '⚖️', color: '#f59e0b' },
-  validation: { name: '社交认可', icon: '❤️', color: '#ef4444' },
-  depression: { name: '情绪状态', icon: '💭', color: '#8b5cf6' },
-  sleep: { name: '睡眠质量', icon: '🌙', color: '#3b82f6' }
+  basic: { name: '基本信息', color: '#6366f1' },
+  social: { name: '社交媒体使用', color: '#8b5cf6' },
+  addiction: { name: '数字使用习惯', color: '#ec4899' },
+  mental: { name: '心理状态', color: '#14b8a6' },
+  comparison: { name: '社交比较', color: '#f59e0b' },
+  validation: { name: '社交认可', color: '#ef4444' },
+  depression: { name: '情绪状态', color: '#8b5cf6' },
+  sleep: { name: '睡眠质量', color: '#3b82f6' }
 };
 
 // 简版问卷配置 - 只包含核心题目
@@ -314,15 +314,13 @@ export const QUESTIONNAIRE_MODES = {
     title: '快速评估',
     subtitle: '约30秒',
     description: '核心问题快速筛查，适合初步了解心理健康状态',
-    questions: SIMPLE_MODE_QUESTIONS,
-    icon: '⚡'
+    questions: SIMPLE_MODE_QUESTIONS
   },
   detailed: {
     title: '完整评估', 
     subtitle: '约2分钟',
     description: '全面评估社交媒体使用与心理健康的关联',
-    questions: DETAILED_MODE_QUESTIONS,
-    icon: '📋'
+    questions: DETAILED_MODE_QUESTIONS
   }
 };
 

@@ -56,7 +56,13 @@ export function PlatformSelector({ question, value = [], onChange }) {
               checked={value.includes(opt.value)}
               onChange={() => handleToggle(opt.value)}
             />
-            <span className="platform-icon">{opt.icon || '📱'}</span>
+            <span className="platform-check">
+              {value.includes(opt.value) && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              )}
+            </span>
             <span className="platform-label">{opt.label}</span>
           </label>
         ))}
@@ -155,16 +161,36 @@ export function QuestionnaireProgress({ current, total }) {
 
 // 模式选择器
 export function ModeSelector({ modes, currentMode, onModeChange }) {
+  // SVG图标映射
+  const modeIcons = {
+    simple: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    ),
+    detailed: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+    )
+  };
+
   return (
     <div className="mode-selector">
       {Object.entries(modes).map(([key, mode]) => (
         <button
           key={key}
           type="button"
-          className={`mode-card ${currentMode === key ? 'active' : ''}`}
+          className={`mode-card glass-inner ${currentMode === key ? 'active' : ''}`}
           onClick={() => onModeChange(key)}
         >
-          <span className="mode-icon">{mode.icon}</span>
+          <div className="mode-icon-wrapper">
+            {modeIcons[key]}
+          </div>
           <div className="mode-info">
             <h4 className="mode-title">{mode.title}</h4>
             <span className="mode-subtitle">{mode.subtitle}</span>

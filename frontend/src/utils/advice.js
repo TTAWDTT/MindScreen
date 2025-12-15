@@ -13,34 +13,29 @@ const ADVICE_TEMPLATES = {
       {
         title: '降低社交媒体使用时间',
         content: '建议将每日社交媒体使用控制在2小时以内，设置使用提醒和时间限制。',
-        priority: 'high',
-        icon: '⏰'
+        priority: 'high'
       },
       {
         title: '增加线下社交活动',
         content: '每周安排2-3次面对面社交，如与朋友聚餐、参加兴趣社团等。',
-        priority: 'high',
-        icon: '👥'
+        priority: 'high'
       },
       {
         title: '建立健康的使用边界',
         content: '睡前1小时和起床后30分钟避免使用社交媒体，减少被动浏览。',
-        priority: 'medium',
-        icon: '🚫'
+        priority: 'medium'
       }
     ],
     lower: [
       {
         title: '保持良好习惯',
         content: '您的社交媒体使用习惯较为健康，继续保持有意识的使用方式。',
-        priority: 'low',
-        icon: '✅'
+        priority: 'low'
       },
       {
         title: '定期自我检视',
         content: '每月回顾一次自己的数字使用习惯，及时调整不良倾向。',
-        priority: 'low',
-        icon: '📊'
+        priority: 'low'
       }
     ]
   },
@@ -51,42 +46,36 @@ const ADVICE_TEMPLATES = {
       {
         title: '寻求专业帮助',
         content: '建议咨询心理健康专业人士，获取专业的评估和支持。',
-        priority: 'critical',
-        icon: '🏥'
+        priority: 'critical'
       },
       {
         title: '建立支持网络',
         content: '向信任的家人或朋友倾诉，不要独自承受压力。',
-        priority: 'high',
-        icon: '💬'
+        priority: 'high'
       },
       {
         title: '保持规律作息',
         content: '固定作息时间，保证7-8小时睡眠，有助于情绪稳定。',
-        priority: 'high',
-        icon: '🌙'
+        priority: 'high'
       }
     ],
     medium: [ // 3级
       {
         title: '关注情绪变化',
         content: '记录每日情绪状态，识别影响情绪的因素和触发点。',
-        priority: 'medium',
-        icon: '📝'
+        priority: 'medium'
       },
       {
         title: '增加身体活动',
         content: '每天30分钟中等强度运动，如散步、慢跑，可有效改善情绪。',
-        priority: 'medium',
-        icon: '🏃'
+        priority: 'medium'
       }
     ],
     low: [ // 1-2级
       {
         title: '维持积极状态',
         content: '您的情绪状态较为稳定，继续保持健康的生活方式。',
-        priority: 'low',
-        icon: '😊'
+        priority: 'low'
       }
     ]
   },
@@ -97,20 +86,17 @@ const ADVICE_TEMPLATES = {
       high: [
         {
           title: '数字排毒计划',
-          content: '尝试每周一天"无社交媒体日"，体验脱离数字设备的生活。',
-          icon: '📵'
+          content: '尝试每周一天"无社交媒体日"，体验脱离数字设备的生活。'
         },
         {
           title: '使用管理工具',
-          content: '安装屏幕时间管理应用，设置每日使用上限和定时提醒。',
-          icon: '⚙️'
+          content: '安装屏幕时间管理应用，设置每日使用上限和定时提醒。'
         }
       ],
       medium: [
         {
           title: '有意识使用',
-          content: '每次打开社交媒体前问自己：我想要什么？避免无目的浏览。',
-          icon: '🎯'
+          content: '每次打开社交媒体前问自己：我想要什么？避免无目的浏览。'
         }
       ]
     },
@@ -118,13 +104,11 @@ const ADVICE_TEMPLATES = {
       high: [
         {
           title: '改善睡眠环境',
-          content: '保持卧室安静、黑暗、凉爽，睡前避免使用电子设备。',
-          icon: '🛏️'
+          content: '保持卧室安静、黑暗、凉爽，睡前避免使用电子设备。'
         },
         {
           title: '建立睡眠仪式',
-          content: '睡前进行放松活动如阅读、冥想，帮助身体进入睡眠状态。',
-          icon: '🧘'
+          content: '睡前进行放松活动如阅读、冥想，帮助身体进入睡眠状态。'
         }
       ]
     },
@@ -132,13 +116,11 @@ const ADVICE_TEMPLATES = {
       high: [
         {
           title: '调整关注内容',
-          content: '取消关注让您产生负面情绪的账号，关注更多正向、真实的内容。',
-          icon: '👀'
+          content: '取消关注让您产生负面情绪的账号，关注更多正向、真实的内容。'
         },
         {
           title: '培养自我认同',
-          content: '记录自己的成就和进步，专注于个人成长而非与他人比较。',
-          icon: '🌟'
+          content: '记录自己的成就和进步，专注于个人成长而非与他人比较。'
         }
       ]
     }
@@ -150,20 +132,17 @@ export const HELP_RESOURCES = [
   {
     name: '全国心理援助热线',
     number: '400-161-9995',
-    available: '24小时',
-    icon: '📞'
+    available: '24小时'
   },
   {
     name: '北京心理危机研究与干预中心',
     number: '010-82951332',
-    available: '24小时',
-    icon: '🏥'
+    available: '24小时'
   },
   {
     name: '生命热线',
     number: '400-821-1215',
-    available: '24小时',
-    icon: '💚'
+    available: '24小时'
   }
 ];
 

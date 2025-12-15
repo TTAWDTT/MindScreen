@@ -106,17 +106,24 @@ function App() {
       <header className="header">
         <div className="header-content">
           <div className="logo">
-            <div className="logo-icon">🧠</div>
+            <div className="logo-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 2a9 9 0 0 1 9 9c0 3.6-2.4 6.6-5.7 7.7-.3.1-.5-.1-.5-.4v-1.5c0-.7-.3-1.2-.6-1.4 2-.2 4.1-1 4.1-4.4 0-1-.3-1.8-.9-2.4.1-.2.4-1.1-.1-2.4 0 0-.7-.2-2.4 1a8 8 0 0 0-4.4 0c-1.7-1.2-2.4-1-2.4-1-.5 1.3-.2 2.2-.1 2.4-.6.6-.9 1.4-.9 2.4 0 3.4 2.1 4.2 4.1 4.4-.3.2-.5.6-.6 1.2-.5.2-1.8.6-2.6-.7 0 0-.5-.9-1.4-1 0 0-.9 0-.1.6 0 0 .6.3 1 1.4 0 0 .5 1.8 3.2 1.2v1c0 .3-.2.5-.5.4A9 9 0 0 1 3 11a9 9 0 0 1 9-9z"/>
+              </svg>
+            </div>
             <div className="logo-text">
               <h1>MindScreen</h1>
               <span>社交媒体与心理健康评估</span>
             </div>
           </div>
           <button 
-            className="info-btn"
+            className="info-btn glass-btn"
             onClick={() => setShowModelInfo(true)}
           >
-            <span>🔬</span>
+            <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
             了解预测原理
           </button>
         </div>
@@ -133,30 +140,46 @@ function App() {
         ) : (
           <>
             {/* 欢迎区域 */}
-            <section className="welcome-section">
+            <section className="welcome-section glass-card">
               <h2>探索社交媒体对心理健康的影响</h2>
               <p>
                 基于机器学习的智能评估系统，帮助您了解数字使用习惯与心理健康的关联，
                 获取个性化的改善建议。
               </p>
               <div className="welcome-features">
-                <div className="feature-item">
-                  <span className="feature-icon">⚡</span>
+                <div className="feature-item glass-inner">
+                  <div className="feature-icon-wrapper">
+                    <svg className="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                  </div>
                   <span>快速评估</span>
                 </div>
-                <div className="feature-item">
-                  <span className="feature-icon">📊</span>
+                <div className="feature-item glass-inner">
+                  <div className="feature-icon-wrapper">
+                    <svg className="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <line x1="18" y1="20" x2="18" y2="10"/>
+                      <line x1="12" y1="20" x2="12" y2="4"/>
+                      <line x1="6" y1="20" x2="6" y2="14"/>
+                    </svg>
+                  </div>
                   <span>数据可视化</span>
                 </div>
-                <div className="feature-item">
-                  <span className="feature-icon">💡</span>
+                <div className="feature-item glass-inner">
+                  <div className="feature-icon-wrapper">
+                    <svg className="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="16" x2="12" y2="12"/>
+                      <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                  </div>
                   <span>个性化建议</span>
                 </div>
               </div>
             </section>
 
             {/* 问卷表单 */}
-            <section className="form-section">
+            <section className="form-section glass-card">
               <h2 className="section-title">选择评估模式</h2>
               
               <ModeSelector
@@ -171,8 +194,13 @@ function App() {
                 </div>
                 
                 {error && (
-                  <div className="error-message">
-                    <span>⚠️</span> {error}
+                  <div className="error-message glass-inner">
+                    <svg className="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="8" x2="12" y2="12"/>
+                      <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    {error}
                   </div>
                 )}
                 
@@ -197,7 +225,7 @@ function App() {
       </main>
 
       {/* 页脚 */}
-      <footer className="footer">
+      <footer className="footer glass-card">
         <p>MindScreen © 2024 - 基于机器学习的心理健康评估系统</p>
         <p className="disclaimer">
           声明：本系统仅供参考，不能替代专业医疗诊断。如有需要，请咨询专业心理健康服务机构。

@@ -55,6 +55,33 @@ export function PercentileBar({ label, value, baseline = 50, color = COLORS.prim
   );
 }
 
+// 状态图标组件（使用 SVG 代替 emoji）
+function StatusIcon({ status, color }) {
+  if (status === 'high') {
+    return (
+      <svg className="status-icon" viewBox="0 0 24 24" fill="none" stroke={color || '#ef4444'} strokeWidth="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <circle cx="12" cy="16" r="1" fill={color || '#ef4444'}/>
+      </svg>
+    );
+  }
+  if (status === 'low') {
+    return (
+      <svg className="status-icon" viewBox="0 0 24 24" fill="none" stroke={color || '#10b981'} strokeWidth="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M8 12l3 3 5-6"/>
+      </svg>
+    );
+  }
+  return (
+    <svg className="status-icon" viewBox="0 0 24 24" fill="none" stroke={color || '#6366f1'} strokeWidth="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>
+  );
+}
+
 // 关键指标卡片
 export function IndicatorCard({ indicator, onHover }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -72,9 +99,9 @@ export function IndicatorCard({ indicator, onHover }) {
       onMouseLeave={() => { setIsHovered(false); onHover?.(null); }}
     >
       <div className="indicator-header">
-        <span className="indicator-icon" style={{ color: indicator.color }}>
-          {indicator.status === 'high' ? '⚠️' : indicator.status === 'low' ? '✅' : '📊'}
-        </span>
+        <div className="indicator-icon-wrapper" style={{ background: `${indicator.color}15` }}>
+          <StatusIcon status={indicator.status} color={indicator.color} />
+        </div>
         <h4 className="indicator-title">{indicator.label}</h4>
       </div>
       <div className="indicator-content">
@@ -83,12 +110,15 @@ export function IndicatorCard({ indicator, onHover }) {
           <span className="score-label">/5</span>
         </div>
         <div className="indicator-percentile">
-          <div 
-            className="percentile-mini-bar"
-            style={{ 
-              background: `linear-gradient(to right, ${statusColors[indicator.status]} ${indicator.percentile}%, rgba(255,255,255,0.1) ${indicator.percentile}%)`
-            }}
-          />
+          <div className="percentile-track">
+            <div 
+              className="percentile-fill"
+              style={{ 
+                width: `${indicator.percentile}%`,
+                background: `linear-gradient(90deg, ${statusColors[indicator.status]}80, ${statusColors[indicator.status]})`
+              }}
+            />
+          </div>
           <span className="percentile-text">
             {indicator.statusLabel} · 超过{indicator.percentile?.toFixed(0)}%人群
           </span>
@@ -97,7 +127,7 @@ export function IndicatorCard({ indicator, onHover }) {
       
       {/* 悬浮详情 */}
       {isHovered && (
-        <div className="indicator-tooltip">
+        <div className="indicator-tooltip glass-tooltip">
           <h5>详细分析</h5>
           <p>您的{indicator.label}得分为 {indicator.score?.toFixed(1)}/5</p>
           <p>在人群中处于第 {indicator.percentile?.toFixed(0)} 百分位</p>
@@ -123,68 +153,131 @@ export function RadarChartComponent({ data, title }) {
   }));
   
   return (
-    <div className="chart-container">
+    <div className="chart-container radar-chart">
       {title && <h3 className="chart-title">{title}</h3>}
       <ResponsiveContainer width="100%" height={300}>
         <RadarChart data={chartData}>
-          <PolarGrid stroke="rgba(255,255,255,0.1)" />
+          <PolarGrid stroke="rgba(99,102,241,0.1)" />
           <PolarAngleAxis 
             dataKey="subject" 
-            tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11 }}
+            tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
           />
           <PolarRadiusAxis 
             angle={30} 
             domain={[0, 100]} 
-            tick={{ fill: 'rgba(255,255,255,0.5)' }}
+            tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
           />
           <Radar
             name="您的得分"
             dataKey="value"
             stroke={COLORS.primary}
-            fill={COLORS.primary}
-            fillOpacity={0.3}
+            fill="url(#radarGradient)"
+            fillOpacity={0.4}
+            strokeWidth={2}
           />
+          <defs>
+            <linearGradient id="radarGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={COLORS.primary} stopOpacity={0.6} />
+              <stop offset="100%" stopColor={COLORS.secondary} stopOpacity={0.2} />
+            </linearGradient>
+          </defs>
         </RadarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
+// 指标标签映射表
+const INDICATOR_LABELS = {
+  q9: '无目的浏览',
+  q10: '工作学习分心',
+  q11: '离线焦躁感',
+  q12: '注意力分散',
+  q13: '担忧困扰',
+  q14: '注意力集中',
+  q15: '社交比较',
+  q16: '比较后感受',
+  q17: '寻求认可',
+  q18: '情绪低落',
+  q19: '兴趣波动',
+  q20: '睡眠问题'
+};
+
 // 分布对比图
 export function DistributionChart({ percentiles, title }) {
-  const chartData = percentiles?.map(p => ({
-    name: p.label?.replace(/Q\d+\s*/, '') || p.id,
-    您的得分: p.percentile || 0,
-    人群平均: p.baseline_percentile || 50
-  })) || [];
+  const chartData = percentiles?.map(p => {
+    // 优先使用映射表，然后是label（去掉Q前缀），最后是id
+    let displayName = INDICATOR_LABELS[p.id];
+    if (!displayName && p.label) {
+      displayName = p.label.replace(/^Q\d+\s*/, '').trim();
+    }
+    if (!displayName) {
+      displayName = p.id;
+    }
+    return {
+      name: displayName,
+      您的位置: p.percentile || 0,
+      人群中位: 50
+    };
+  }) || [];
   
   return (
-    <div className="chart-container">
+    <div className="chart-container distribution-chart">
       {title && <h3 className="chart-title">{title}</h3>}
-      <ResponsiveContainer width="100%" height={350}>
+      <ResponsiveContainer width="100%" height={Math.max(350, chartData.length * 45)}>
         <BarChart 
           data={chartData} 
           layout="vertical"
-          margin={{ left: 10, right: 30 }}
+          margin={{ left: 20, right: 30, top: 10, bottom: 10 }}
         >
-          <XAxis type="number" domain={[0, 100]} tick={{ fill: 'rgba(255,255,255,0.6)' }} />
+          <XAxis 
+            type="number" 
+            domain={[0, 100]} 
+            tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+            tickFormatter={(v) => `${v}%`}
+            axisLine={{ stroke: 'rgba(0,0,0,0.1)' }}
+          />
           <YAxis 
             type="category" 
             dataKey="name" 
-            width={140}
-            tick={{ fill: 'rgba(255,255,255,0.8)', fontSize: 11 }}
+            width={100}
+            tick={{ fill: 'var(--text-primary)', fontSize: 13, fontWeight: 500 }}
+            axisLine={false}
+            tickLine={false}
           />
           <Tooltip 
             contentStyle={{ 
-              background: 'rgba(30,30,46,0.95)', 
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 8
+              background: 'rgba(255,255,255,0.95)', 
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 12,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
             }}
-            formatter={(value) => `${value.toFixed(1)}%`}
+            formatter={(value) => [`${value.toFixed(1)}%`, '']}
+            labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
           />
-          <Legend />
-          <Bar dataKey="人群平均" fill="rgba(255,255,255,0.15)" radius={[0, 4, 4, 0]} />
-          <Bar dataKey="您的得分" fill={COLORS.primary} radius={[0, 4, 4, 0]} />
+          <Legend 
+            wrapperStyle={{ paddingTop: 16 }}
+            formatter={(value) => <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{value}</span>}
+          />
+          <Bar 
+            dataKey="人群中位" 
+            fill="rgba(99,102,241,0.15)" 
+            radius={[0, 6, 6, 0]}
+            barSize={20}
+          />
+          <Bar 
+            dataKey="您的位置" 
+            fill="url(#barGradient)" 
+            radius={[0, 6, 6, 0]}
+            barSize={20}
+          />
+          <defs>
+            <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={COLORS.primary} stopOpacity={0.8} />
+              <stop offset="100%" stopColor={COLORS.secondary} stopOpacity={1} />
+            </linearGradient>
+          </defs>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -198,10 +291,13 @@ export function RiskPieChart({ probabilities, title }) {
     value: Math.round(p.probability * 1000) / 10
   })) || [];
   
+  // 更新配色以匹配 iOS 风格
+  const pieColors = ['#6366f1', '#a5b4fc', '#c4b5fd', '#f0abfc', '#86efac'];
+  
   return (
-    <div className="chart-container">
+    <div className="chart-container pie-chart">
       {title && <h3 className="chart-title">{title}</h3>}
-      <ResponsiveContainer width="100%" height={250}>
+      <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie
             data={data}
@@ -209,16 +305,26 @@ export function RiskPieChart({ probabilities, title }) {
             nameKey="name"
             cx="50%"
             cy="50%"
-            innerRadius={50}
-            outerRadius={80}
-            paddingAngle={3}
-            label={({ name, value }) => `${name}: ${value}%`}
+            innerRadius={45}
+            outerRadius={75}
+            paddingAngle={2}
+            label={({ name, value }) => `${name} ${value}%`}
+            labelLine={{ stroke: 'var(--text-muted)', strokeWidth: 1 }}
           >
             {data.map((entry, idx) => (
-              <Cell key={idx} fill={COLORS.chart[idx % COLORS.chart.length]} />
+              <Cell key={idx} fill={pieColors[idx % pieColors.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={(v) => `${v}%`} />
+          <Tooltip 
+            contentStyle={{ 
+              background: 'rgba(255,255,255,0.95)', 
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 10,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
+            }}
+            formatter={(v) => [`${v}%`, '']}
+          />
         </PieChart>
       </ResponsiveContainer>
     </div>
