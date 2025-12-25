@@ -1,9 +1,0 @@
-AP=0.5957
-ROC_AUC=0.6560
-scale_pos_weight=1.1818181818181819
-threshold_recommendations:
-,threshold,precision,recall
-0.8,0.3826602101325989,0.5846153846153846,0.8444444444444444
-0.9,0.26493003964424133,0.5540540540540541,0.9111111111111111
-Estimated digital_addiction_score crossing interval: (np.int64(12), np.int64(13))
-Suggested segmentation: low <=12, mid 13-12, high >=13

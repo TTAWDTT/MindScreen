@@ -1,6 +1,0 @@
-,0
-n_train,384.0
-n_test,97.0
-train_pos,176.0
-train_neg,208.0
-scale_pos_weight,1.1818181818181819

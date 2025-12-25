@@ -1,9 +1,0 @@
-{
-  "best": {
-    "n_estimators": 100,
-    "max_depth": 3,
-    "learning_rate": 0.05,
-    "score": 0.6424397824397824
-  },
-  "best_score": 0.6424397824397824
-}

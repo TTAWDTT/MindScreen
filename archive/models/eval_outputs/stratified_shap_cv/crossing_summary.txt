@@ -1,7 +1,0 @@
-Per-fold crossings:
-{'fold': 1, 'cross_point': (15, 16)}
-{'fold': 2, 'cross_point': (12, 13)}
-{'fold': 3, 'cross_point': (12, 13)}
-{'fold': 4, 'cross_point': (14, 15)}
-{'fold': 5, 'cross_point': (14, 15)}
-Folds with crossing at (12,13): 2 / 5

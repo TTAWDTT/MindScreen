@@ -1,5 +1,5 @@
 {
-  "training_date": "2025-12-19T21:34:29.103603",
+  "training_date": "2025-12-20T16:09:52.941165",
   "dataset_info": {
     "path": "D:\\Github\\MindScreen\\smmh.csv",
     "rows": 481,
@@ -12,7 +12,7 @@
         "model__C": 0.1,
         "model__solver": "lbfgs"
       },
-      "train_time_seconds": 3.24,
+      "train_time_seconds": 3.38,
       "cv_score": 0.8212,
       "balanced_accuracy": 0.8336,
       "f1_macro": 0.8336,
@@ -55,7 +55,7 @@
         "model__min_samples_leaf": 2,
         "model__n_estimators": 100
       },
-      "train_time_seconds": 1.4,
+      "train_time_seconds": 1.43,
       "cv_score": 0.8041,
       "balanced_accuracy": 0.8525,
       "f1_macro": 0.8538,
@@ -140,7 +140,7 @@
         "model__C": 0.1,
         "model__kernel": "linear"
       },
-      "train_time_seconds": 0.17,
+      "train_time_seconds": 0.16,
       "cv_score": 0.8015,
       "balanced_accuracy": 0.8336,
       "f1_macro": 0.8336,
@@ -183,7 +183,7 @@
         "model__max_depth": 6,
         "model__n_estimators": 100
       },
-      "train_time_seconds": 1.0,
+      "train_time_seconds": 1.44,
       "cv_score": 0.8064,
       "balanced_accuracy": 0.8223,
       "f1_macro": 0.8229,
@@ -226,7 +226,7 @@
         "model__max_depth": 3,
         "model__n_estimators": 100
       },
-      "train_time_seconds": 1.92,
+      "train_time_seconds": 2.28,
       "cv_score": 0.7984,
       "balanced_accuracy": 0.8619,
       "f1_macro": 0.8639,
@@ -330,7 +330,7 @@
         "model__min_samples_leaf": 1,
         "model__n_estimators": 200
       },
-      "train_time_seconds": 1.49,
+      "train_time_seconds": 1.55,
       "cv_score": 0.355,
       "balanced_accuracy": 0.3341,
       "f1_macro": 0.3313,
@@ -390,7 +390,7 @@
         "model__max_depth": 5,
         "model__n_estimators": 100
       },
-      "train_time_seconds": 3.41,
+      "train_time_seconds": 3.39,
       "cv_score": 0.3191,
       "balanced_accuracy": 0.2974,
       "f1_macro": 0.2992,
@@ -449,7 +449,7 @@
         "model__C": 0.1,
         "model__kernel": "linear"
       },
-      "train_time_seconds": 0.39,
+      "train_time_seconds": 0.34,
       "cv_score": 0.3502,
       "balanced_accuracy": 0.2963,
       "f1_macro": 0.2818,
@@ -509,7 +509,7 @@
         "model__max_depth": 3,
         "model__n_estimators": 100
       },
-      "train_time_seconds": 0.56,
+      "train_time_seconds": 0.55,
       "cv_score": 0.3391,
       "balanced_accuracy": 0.3695,
       "f1_macro": 0.3692,
@@ -569,7 +569,7 @@
         "model__max_depth": 6,
         "model__n_estimators": 100
       },
-      "train_time_seconds": 6.5,
+      "train_time_seconds": 8.08,
       "cv_score": 0.3299,
       "balanced_accuracy": 0.3444,
       "f1_macro": 0.3568,
